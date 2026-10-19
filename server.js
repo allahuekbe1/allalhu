@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
-app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log('Kübi hazır, port ' + PORT));
