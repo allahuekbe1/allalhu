@@ -423,6 +423,8 @@ body.chatting #comp{padding-bottom:2px}body.chatting #feed{padding-bottom:124px}
 .dml{display:none}.cmeta .dml{display:inline}
 #send.stop svg rect{fill:currentColor;stroke:none}#send.stop{animation:spl 1.8s ease-in-out infinite}@keyframes spl{50%{box-shadow:0 0 0 6px #ffffff14}}
 .stp{color:var(--dm);font-size:13px}
+textarea:focus,textarea:focus-visible,input:focus,input:focus-visible{outline:none!important;box-shadow:none!important}
+.ar .ad{font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
 </style></head><body>
 <div id="app"><div id="stage">
@@ -842,14 +844,14 @@ typeCode=async function(){const c=$('#code'),cu='<span class="cr"></span>';c.inn
   for(let k=0;k<=l.length;k+=4){d.innerHTML=line(i,l,k)+cu;await sleep(10)}
   d.innerHTML=line(i,l)}
  c.lastChild.insertAdjacentHTML('beforeend',cu)};
-$('#code').innerHTML=CODE.map((l,i)=>`<div>${line(i,l)}</div>`).join('');
+$('#code').innerHTML=CODE.map((l,i)=>`<div>${line(i,l)}</div>`).join('');window.paintCode=()=>{$('#code').innerHTML=CODE.map((l,i)=>`<div>${line(i,l)}</div>`).join('')};
 $('#att').onclick=()=>$('#attf').click();
 $('#attf').onchange=e=>{const n=e.target.files;$('#attn').textContent=n.length>1?n.length+' dosya':n.length?n[0].name:'Dosya ekle'};
 })();
 </script>
 <script>
 (()=>{const bar=$('.bar'),nav=$('.cmeta'),mp=$('.mp'),at=$('.bar .ib[aria-label="Dosya ekle"]'),f=$('#attf'),b=document.body;
-$('#att').remove();$('#mw').remove();
+$('#att').remove();
 at.onclick=()=>f.click();
 f.onchange=()=>{const n=f.files.length;at.classList.toggle('has',n>0);at.title=n?[...f.files].map(x=>x.name).join(', '):'Dosya ekle'};
 const place=()=>{if(b.classList.contains('chatting')){if(at.parentNode!==nav){nav.append(at);nav.append(mp)}}else if(at.parentNode!==bar){bar.insertBefore(at,bar.firstChild);bar.insertBefore(mp,$('#send'))}};
@@ -970,6 +972,55 @@ $('#mc').addEventListener('mouseenter',()=>{if(K.idle())K.setExp('kikirdak',1400
 $('#mc').addEventListener('dblclick',()=>K.go('dans'));
 ['keydown','pointerdown'].forEach(e=>addEventListener(e,()=>la=Date.now()));
 setInterval(()=>{if(Date.now()-la>50000&&K.idle()&&!document.hidden){la=Date.now();K.go('uyu')}},5000);
+})();
+</script>
+<script>
+(()=>{const FILES={},HIST=[],V={};let ctl=null;const sc=()=>$('#feed').scrollTop=1e6;
+const IC={think:'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2',skill:'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4',write:'M4 20h4L19 9l-4-4L4 16z',file:'M7 3h7l4 4v14H7zM14 3v4h4',edit:'M4 7h10M4 12h16M4 17h7',swap:'M7 7h11l-3-3M17 17H6l3 3'};
+const show=n=>{const c=FILES[n]??'';CODE.length=0;CODE.push(...c.split('\n'));if(/\.html?$/i.test(n))$('#pvf').srcdoc=c;paintCode();const h=$('#ws .hn b');if(h)h.textContent=n;const s=$('.ch span');if(s)s.textContent=n;const s2=$('.ch span:last-child');if(s2)s2.textContent=CODE.length+' satır';$('.url').textContent='kubi.app / '+n};
+const open=n=>{show(n);ws(true);tab(/\.html?$/i.test(n)?'v':'e')};
+const apply=t=>{let ad=0,rm=0,bad=0,last=null;
+ for(const m of t.matchAll(/<file name="([^"]+)">\n?([\s\S]*?)<\/file>/g)){FILES[m[1]]=m[2].replace(/\n$/,'');ad+=m[2].split('\n').length;last=m[1];V[last]=(V[last]||0)+1}
+ for(const m of t.matchAll(/<edit name="([^"]+)">\s*<old>\n?([\s\S]*?)\n?<\/old>\s*<new>\n?([\s\S]*?)\n?<\/new>\s*<\/edit>/g)){const f=FILES[m[1]];if(f&&f.includes(m[2])){FILES[m[1]]=f.replace(m[2],()=>m[3]);rm+=m[2].split('\n').length;ad+=m[3].split('\n').length;last=m[1];V[last]=(V[last]||0)+1}else bad++}
+ return{ad,rm,bad,last}};
+runAct=async function(q){if(busy)return;busy=true;addChat(q);$('#hero').classList.add('gone');$('#mc').className='chat';
+ const col=$('#col'),u=document.createElement('div');u.className='me';u.textContent=q;col.appendChild(u);
+ const a=document.createElement('div');a.className='ai';
+ a.innerHTML=`<div class="wk"><button class="wkh"><svg class="wkc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg><span class="wkt shim">Çalışıyor</span><em class="wks"></em><span class="wkd"></span></button><div class="wkb"><div><div class="wkl"></div></div></div></div><div class="txt"></div>`;
+ col.appendChild(a);sc();M.think=true;document.body.classList.add('thk');
+ const wk=$('.wk',a),L=$('.wkl',a),tx=$('.txt',a),t0=Date.now(),sec=()=>Math.max(1,Math.round((Date.now()-t0)/1000)),clk=setInterval(()=>$('.wks',a).textContent=Math.round((Date.now()-t0)/1000)+' sn',500);
+ $('.wkh',a).onclick=()=>wk.classList.toggle('fold');
+ const rows={};
+ const st=(id,label,det)=>{if(rows[id])return;const r=document.createElement('div');r.className='ar act';r.dataset.t=Date.now();r.innerHTML=`<button class="arh"><span class="ai2"><svg viewBox="0 0 24 24"><path d="${IC[id.replace(/\d+$/,'')]||IC.think}"/></svg></span><span class="at">${label}</span><em class="ad"></em><svg class="chr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button><div class="ab"><div><div class="abi">${det||''}</div></div></div>`;$('.arh',r).onclick=()=>r.classList.toggle('open');L.appendChild(r);rows[id]=r;sc()};
+ const dn=(id,label)=>{const r=rows[id];if(!r||!r.classList.contains('act'))return;r.classList.replace('act','ok');if(label)$('.at',r).textContent=label;$('.ad',r).textContent=((Date.now()-r.dataset.t)/1000).toFixed(1)+' sn'};
+ HIST.push({role:'user',content:q});
+ ctl=new AbortController();const sig=ctl.signal;let full='',vis='';
+ const view=()=>{const cl=full.replace(/<file[\s\S]*?<\/file>/g,'').replace(/<edit[\s\S]*?<\/edit>/g,''),cut=cl.search(/<(file|edit)\b/);
+  vis=(cut>=0?cl.slice(0,cut):cl).replace(/<[a-z\/]*$/,'').trim();tx.textContent=vis;
+  if(full){dn('think','Düşündü');if(vis)st('write','Cevap yazılıyor')}
+  if(/<file\b/.test(full)){dn('write');st('file','Dosya yazılıyor','Satır satır yazılıyor')}
+  if(/<edit\b/.test(full)){dn('write');st('edit','Dosya düzenleniyor','Sadece değişen kısımlar yazılıyor')}sc()};
+ try{
+  const r=await fetch('/api/chat',{method:'POST',signal:sig,headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:HIST.slice(-12),mode,files:Object.entries(FILES).map(([name,content])=>({name,content}))})});
+  if(!r.ok||!r.body)throw new Error('Sunucu '+r.status);
+  const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
+  for(;;){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});let i;
+   while((i=buf.indexOf('\n\n'))>=0){const ln=buf.slice(0,i);buf=buf.slice(i+2);if(!ln.startsWith('data: '))continue;const e=JSON.parse(ln.slice(6));
+    if(e.k==='stage')st(e.id,e.label,e.detail);else if(e.k==='done_stage')dn(e.id,e.label);
+    else if(e.k==='text'){full+=e.d;view()}else if(e.k==='error')throw new Error(e.m)}}
+ }catch(err){if(sig.aborted)return;vis=(vis?vis+'\n':'')+'Bir sorun oldu: '+err.message;tx.textContent=vis}
+ clearInterval(clk);ctl=null;Object.keys(rows).forEach(k=>dn(k));M.think=false;document.body.classList.remove('thk');M.jump=1;
+ const res=apply(full);
+ if(res.last){$('.wkd',a).innerHTML=`<b>+${res.ad}</b><i>/</i><b>−${res.rm}</b>`;$('.wkd',a).classList.add('on');open(res.last)}
+ if(res.bad){vis+=`\n(${res.bad} düzenleme dosyada eşleşmedi, uygulanmadı)`;tx.textContent=vis}
+ HIST.push({role:'assistant',content:vis||'(dosya güncellendi)'});
+ wk.classList.add('done');$('.wkt',a).textContent=sec()+' sn çalıştı';$('.wks',a).textContent='';setTimeout(()=>wk.classList.add('fold'),900);
+ if(res.last){const n=res.last,f=document.createElement('button');f.className='afc';f.innerHTML=`<span class="afi"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/></svg></span><span><b>${n}</b><small>Belge · ${n.split('.').pop().toUpperCase()} · v${V[n]}</small></span><span class="afo">Aç</span>`;f.onclick=()=>open(n);a.appendChild(f)}
+ const ac=document.createElement('div');ac.className='acts';ac.innerHTML='<button aria-label="Kopyala"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="3"/><path d="M5 15V6a2 2 0 012-2h9"/></svg></button><button aria-label="Beğen"><svg viewBox="0 0 24 24"><path d="M7 11v9H4v-9zM7 11l4-8a2 2 0 012 2v4h5a2 2 0 012 2l-1 6a2 2 0 01-2 2H7"/></svg></button><button aria-label="Yeniden dene"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 10-2.3 5.7M20 5v6h-6"/></svg></button>';
+ const[b1,b2,b3]=ac.children;b1.onclick=async()=>{try{await navigator.clipboard.writeText(vis)}catch(e){}b1.classList.add('ok');setTimeout(()=>b1.classList.remove('ok'),1200)};b2.onclick=()=>b2.classList.toggle('ok');b3.onclick=()=>run(q);
+ a.appendChild(ac);sc();busy=false};
+new MutationObserver(()=>{if(!document.body.classList.contains('thk')&&ctl){ctl.abort();ctl=null}}).observe(document.body,{attributes:true,attributeFilter:['class']});
+$('#attf').addEventListener('change',async e=>{let n=null;for(const f of e.target.files){if(f.size>2e5)continue;FILES[f.name]=await f.text();V[f.name]=1;n=f.name}if(n)open(n)});
 })();
 </script>
 </body></html>
