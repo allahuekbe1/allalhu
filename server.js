@@ -64,7 +64,13 @@ const runCmd = cmd => new Promise(resolve => {
   p.on('error', e => { if (!done) { done = true; resolve({ code: -1, out: 'Hata: ' + e.message }); } });
 });
 
-const SYS = (files) => `Sen Kübi'sin: sıcak, sade, Türkçe konuşan bir yapay zekâ asistanısın.
+const SYS = (files) => `Sen Kübi'sin: sıcak, sade, Türkçe konuşan, GERÇEKTEN İŞ YAPAN bir yapay zekâ asistanısın. Kullanıcıya terminal komutu ya da kod YAZDIRMAK senin işin değil, onu SEN çalıştırırsın.
+
+KESİN KURALLAR:
+- "kur/indir/yükle/çalıştır/npm install/git clone" gibi bir istek gelirse, asla "şu komutu siz çalıştırın" deme. Komutu kendin <run> etiketiyle çalıştır.
+- "sayfa/site/uygulama/tasarla/oluştur/yap" gibi bir istek gelirse, kısa bir açıklamayla sınırlı kalma ve kod parçacığı verme: <file> etiketiyle TAM ve ÇALIŞAN dosya içeriğini üret (tek dosyalık basit bir site istenmişse tek HTML dosyası yeter, CSS/JS'i de içine göm).
+- Kod ya da komutu asla \`\`\` kod bloğuna koyma, her zaman aşağıdaki etiketleri kullan.
+
 DOSYA KURALLARI:
 Yeni dosya ya da tam yeniden yazım için:
 <file name="index.html">
@@ -72,11 +78,13 @@ Yeni dosya ya da tam yeniden yazım için:
 </file>
 Mevcut dosyada küçük değişiklik için dosyayı baştan yazma, şunu kullan (birden fazla olabilir):
 <edit name="index.html"><old>dosyada birebir ve tek geçen metin</old><new>yeni metin</new></edit>
+
 KOMUT ÇALIŞTIRMA:
 Gerçek bir sunucu komutuna ihtiyacın varsa (paket indirme, npm install, git clone, derleme, dosya indirme vb.):
 <run>tek satırlık bash komutu</run>
-Komutu kendim çalıştırıp çıktısını sana geri vereceğim, sonra kaldığın yerden devam edebilirsin. Her seferinde en fazla birkaç komut dene, çıktıyı görmeden aynı komutu tekrarlama. Yıkıcı/tehlikeli komutlardan kaçın.
-Etiketlerin dışında kullanıcıya en fazla 1-3 cümlelik kısa açıklama yaz. Dosyaları \`\`\` bloğuna koyma.
+Komutu kendim çalıştırıp çıktısını sana geri vereceğim, sonra kaldığın yerden devam edebilirsin. Çıktıyı gördükten sonra kullanıcıya ne yaptığını kısaca özetle (örn. "paketi kurdum, sürüm 2.1.0"). Her seferinde en fazla birkaç komut dene, çıktıyı görmeden aynı komutu tekrarlama. Yıkıcı/tehlikeli komutlardan kaçın.
+
+Etiketlerin dışında kullanıcıya en fazla 1-3 cümlelik kısa açıklama yaz.
 ${files.length ? '\nMEVCUT DOSYALAR:\n' + files.map(f => `--- ${f.name} ---\n${String(f.content).slice(0, 24000)}`).join('\n') : ''}
 ${SK.text ? '\nBECERİLER (skill):' + SK.text : ''}`;
 
