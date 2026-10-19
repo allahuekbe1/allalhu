@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -38,6 +39,31 @@ try {
   SK.text = SK.text.slice(0, 15000);
 } catch (e) {}
 
+// --- Komut çalıştırma alanı: workspace/ (Railway'de her yeniden yayında sıfırlanır) ---
+const WORKDIR = path.join(__dirname, 'workspace');
+fs.mkdirSync(WORKDIR, { recursive: true });
+const BAD = [/rm\s+-rf\s+\/(?!\S)/, /:\(\)\s*\{\s*:\|:&\s*\};:/, /mkfs/, /dd\s+if=/, /\bshutdown\b/, /\breboot\b/, />\s*\/dev\/sd/, /curl.*\|\s*(sudo\s+)?bash/];
+const safeEnv = () => {
+  const e = {};
+  for (const k of Object.keys(process.env)) {
+    if (/GROQ|API|SECRET|TOKEN|PASS/i.test(k)) continue; // anahtarlar komut çalıştıran kodun eline hiç geçmesin
+    e[k] = process.env[k];
+  }
+  e.HOME = WORKDIR; e.PATH = e.PATH || '/usr/local/bin:/usr/bin:/bin';
+  return e;
+};
+const runCmd = cmd => new Promise(resolve => {
+  if (BAD.some(r => r.test(cmd))) return resolve({ code: -1, out: 'Bu komut güvenlik nedeniyle engellendi.' });
+  let out = '', done = false;
+  let p;
+  try { p = spawn('bash', ['-lc', cmd], { cwd: WORKDIR, env: safeEnv(), timeout: 45000 }); }
+  catch (e) { return resolve({ code: -1, out: 'Başlatılamadı: ' + e.message }); }
+  const cap = d => { out += d.toString(); if (out.length > 8000) out = out.slice(0, 8000) + '\n…(çıktı kesildi)'; };
+  p.stdout.on('data', cap); p.stderr.on('data', cap);
+  p.on('close', code => { if (!done) { done = true; resolve({ code, out: out || '(çıktı yok)' }); } });
+  p.on('error', e => { if (!done) { done = true; resolve({ code: -1, out: 'Hata: ' + e.message }); } });
+});
+
 const SYS = (files) => `Sen Kübi'sin: sıcak, sade, Türkçe konuşan bir yapay zekâ asistanısın.
 DOSYA KURALLARI:
 Yeni dosya ya da tam yeniden yazım için:
@@ -46,6 +72,10 @@ Yeni dosya ya da tam yeniden yazım için:
 </file>
 Mevcut dosyada küçük değişiklik için dosyayı baştan yazma, şunu kullan (birden fazla olabilir):
 <edit name="index.html"><old>dosyada birebir ve tek geçen metin</old><new>yeni metin</new></edit>
+KOMUT ÇALIŞTIRMA:
+Gerçek bir sunucu komutuna ihtiyacın varsa (paket indirme, npm install, git clone, derleme, dosya indirme vb.):
+<run>tek satırlık bash komutu</run>
+Komutu kendim çalıştırıp çıktısını sana geri vereceğim, sonra kaldığın yerden devam edebilirsin. Her seferinde en fazla birkaç komut dene, çıktıyı görmeden aynı komutu tekrarlama. Yıkıcı/tehlikeli komutlardan kaçın.
 Etiketlerin dışında kullanıcıya en fazla 1-3 cümlelik kısa açıklama yaz. Dosyaları \`\`\` bloğuna koyma.
 ${files.length ? '\nMEVCUT DOSYALAR:\n' + files.map(f => `--- ${f.name} ---\n${String(f.content).slice(0, 24000)}`).join('\n') : ''}
 ${SK.text ? '\nBECERİLER (skill):' + SK.text : ''}`;
@@ -59,7 +89,49 @@ app.use('/api/', (q, s, n) => {
 });
 
 app.get('/health', (_q, r) => r.json({ ok: true }));
-app.get('/api/status', (_q, r) => r.json({ keys: KEYS.length, models: MD, skills: SK.names }));
+app.get('/api/status', (_q, r) => r.json({ keys: KEYS.length, models: MD, skills: SK.names, exec: true }));
+
+async function callOnce(sys, convo, mode, send, ac) {
+  const first = [MD.fast, MD.main, MD.deep][mode] || MD.main;
+  const models = [first, ...[MD.main, MD.deep, MD.fast].filter((m, i, a) => m !== first && a.indexOf(m) === i)];
+  let r = null, used = '', sw = 0;
+  outer: for (const m of models) {
+    for (let t = 0; t < KEYS.length; t++) {
+      const k = pickKey(m); if (!k) break;
+      try {
+        const x = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST', signal: ac.signal,
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + k.v },
+          body: JSON.stringify({ model: m, stream: true, temperature: 0.6, messages: [{ role: 'system', content: sys }, ...convo] }),
+        });
+        if (x.ok) { r = x; used = m; break outer; }
+        if (x.status === 429) {
+          k.u[m] = Date.now() + (parseFloat(x.headers.get('retry-after')) || 30) * 1000;
+          send({ k: 'stage', id: 'swap' + sw, label: 'Limit doldu, yedeğe geçiliyor' });
+          send({ k: 'done_stage', id: 'swap' + sw++, label: 'Yedek seçildi' }); continue;
+        }
+        if (x.status === 401 || x.status === 403) { k.u[m] = Date.now() + 3600e3; continue; }
+        if (x.status >= 500) { k.u[m] = Date.now() + 5000; continue; }
+        break;
+      } catch (e) { if (ac.signal.aborted) throw e; k.u[m] = Date.now() + 5000; }
+    }
+  }
+  if (!r) throw new Error('Tüm anahtarlar ve modeller şu an meşgul, birazdan tekrar dene');
+  send({ k: 'model', m: used });
+  const rd = r.body.getReader(), dc = new TextDecoder();
+  let buf = '', text = '';
+  for (;;) {
+    const { done, value } = await rd.read(); if (done) break;
+    buf += dc.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const ln = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!ln.startsWith('data:') || ln.includes('[DONE]')) continue;
+      try { const d = JSON.parse(ln.slice(5)).choices?.[0]?.delta?.content; if (d) { text += d; send({ k: 'text', d }); } } catch (e) {}
+    }
+  }
+  return text;
+}
 
 app.post('/api/chat', async (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' });
@@ -75,45 +147,25 @@ app.post('/api/chat', async (req, res) => {
       send({ k: 'stage', id: 'skill', label: 'Becerileri okuyor', detail: SK.names.join(', ') });
       send({ k: 'done_stage', id: 'skill', label: 'Beceriler hazır' });
     }
-    const first = [MD.fast, MD.main, MD.deep][mode] || MD.main;
-    const models = [first, ...[MD.main, MD.deep, MD.fast].filter((m, i, a) => m !== first && a.indexOf(m) === i)];
     const sys = SYS(files);
-    let r = null, used = '', sw = 0;
-    outer: for (const m of models) {
-      for (let t = 0; t < KEYS.length; t++) {
-        const k = pickKey(m); if (!k) break;
-        try {
-          const x = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST', signal: ac.signal,
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + k.v },
-            body: JSON.stringify({ model: m, stream: true, temperature: 0.6, messages: [{ role: 'system', content: sys }, ...messages.slice(-12)] }),
-          });
-          if (x.ok) { r = x; used = m; break outer; }
-          if (x.status === 429) {
-            k.u[m] = Date.now() + (parseFloat(x.headers.get('retry-after')) || 30) * 1000;
-            send({ k: 'stage', id: 'swap' + sw, label: 'Limit doldu, yedeğe geçiliyor' });
-            send({ k: 'done_stage', id: 'swap' + sw++, label: 'Yedek seçildi' }); continue;
-          }
-          if (x.status === 401 || x.status === 403) { k.u[m] = Date.now() + 3600e3; continue; }
-          if (x.status >= 500) { k.u[m] = Date.now() + 5000; continue; }
-          break; // 400/404: model sorunu, sıradaki modele geç
-        } catch (e) { if (ac.signal.aborted) return; k.u[m] = Date.now() + 5000; }
+    let convo = [...messages.slice(-12)];
+    for (let round = 0; round < 4; round++) {
+      const roundText = await callOnce(sys, convo, mode, send, ac);
+      if (round === 0) send({ k: 'done_stage', id: 'think', label: 'Düşündü' });
+      convo.push({ role: 'assistant', content: roundText });
+      const runs = [...roundText.matchAll(/<run>([\s\S]*?)<\/run>/g)];
+      if (!runs.length) break;
+      let toolMsg = '';
+      for (let ri = 0; ri < runs.length; ri++) {
+        const cmd = runs[ri][1].trim(), id = 'run' + round + ri;
+        send({ k: 'stage', id, label: 'Komut çalıştırılıyor', detail: cmd });
+        const { code, out } = await runCmd(cmd);
+        send({ k: 'done_stage', id, label: code === 0 ? 'Komut tamamlandı' : 'Komut hata verdi (' + code + ')' });
+        send({ k: 'text', d: `\n<out>${out}</out>\n` });
+        toolMsg += `Komut: ${cmd}\nÇıktı:\n${out}\n\n`;
       }
-    }
-    if (!r) throw new Error('Tüm anahtarlar ve modeller şu an meşgul, birazdan tekrar dene');
-    send({ k: 'done_stage', id: 'think', label: 'Düşündü' });
-    send({ k: 'model', m: used });
-    const rd = r.body.getReader(), dc = new TextDecoder();
-    let buf = '';
-    for (;;) {
-      const { done, value } = await rd.read(); if (done) break;
-      buf += dc.decode(value, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const ln = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-        if (!ln.startsWith('data:') || ln.includes('[DONE]')) continue;
-        try { const d = JSON.parse(ln.slice(5)).choices?.[0]?.delta?.content; if (d) send({ k: 'text', d }); } catch (e) {}
-      }
+      convo.push({ role: 'user', content: 'Komut çalıştırma sonucu (sistem mesajı):\n' + toolMsg + '\nBuna göre devam et.' });
+      if (round === 3) send({ k: 'text', d: '\n(Bu turda en fazla komut denemesine ulaşıldı.)' });
     }
   } catch (e) { if (!ac.signal.aborted) send({ k: 'error', m: e.message }); }
   res.end();
