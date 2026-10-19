@@ -976,7 +976,7 @@ setInterval(()=>{if(Date.now()-la>50000&&K.idle()&&!document.hidden){la=Date.now
 </script>
 <script>
 (()=>{const FILES={},HIST=[],V={};let ctl=null;const sc=()=>$('#feed').scrollTop=1e6;
-const IC={think:'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2',skill:'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4',write:'M4 20h4L19 9l-4-4L4 16z',file:'M7 3h7l4 4v14H7zM14 3v4h4',edit:'M4 7h10M4 12h16M4 17h7',swap:'M7 7h11l-3-3M17 17H6l3 3'};
+const IC={think:'M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2',skill:'M5 4h14v16H5zM9 8h6M9 12h6M9 16h4',write:'M4 20h4L19 9l-4-4L4 16z',file:'M7 3h7l4 4v14H7zM14 3v4h4',edit:'M4 7h10M4 12h16M4 17h7',swap:'M7 7h11l-3-3M17 17H6l3 3',cmd:'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5',run:'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5'};
 const show=n=>{const c=FILES[n]??'';CODE.length=0;CODE.push(...c.split('\n'));if(/\.html?$/i.test(n))$('#pvf').srcdoc=c;paintCode();const h=$('#ws .hn b');if(h)h.textContent=n;const s=$('.ch span');if(s)s.textContent=n;const s2=$('.ch span:last-child');if(s2)s2.textContent=CODE.length+' satır';$('.url').textContent='kubi.app / '+n};
 const open=n=>{show(n);ws(true);tab(/\.html?$/i.test(n)?'v':'e')};
 const apply=t=>{let ad=0,rm=0,bad=0,last=null;
@@ -995,11 +995,12 @@ runAct=async function(q){if(busy)return;busy=true;addChat(q);$('#hero').classLis
  const dn=(id,label)=>{const r=rows[id];if(!r||!r.classList.contains('act'))return;r.classList.replace('act','ok');if(label)$('.at',r).textContent=label;$('.ad',r).textContent=((Date.now()-r.dataset.t)/1000).toFixed(1)+' sn'};
  HIST.push({role:'user',content:q});
  ctl=new AbortController();const sig=ctl.signal;let full='',vis='';
- const view=()=>{const cl=full.replace(/<file[\s\S]*?<\/file>/g,'').replace(/<edit[\s\S]*?<\/edit>/g,''),cut=cl.search(/<(file|edit)\b/);
+ const view=()=>{const cl=full.replace(/<file[\s\S]*?<\/file>/g,'').replace(/<edit[\s\S]*?<\/edit>/g,'').replace(/<run[\s\S]*?<\/run>/g,'').replace(/<out[\s\S]*?<\/out>/g,''),cut=cl.search(/<(file|edit|run|out)\b/);
   vis=(cut>=0?cl.slice(0,cut):cl).replace(/<[a-z\/]*$/,'').trim();tx.textContent=vis;
   if(full){dn('think','Düşündü');if(vis)st('write','Cevap yazılıyor')}
   if(/<file\b/.test(full)){dn('write');st('file','Dosya yazılıyor','Satır satır yazılıyor')}
-  if(/<edit\b/.test(full)){dn('write');st('edit','Dosya düzenleniyor','Sadece değişen kısımlar yazılıyor')}sc()};
+  if(/<edit\b/.test(full)){dn('write');st('edit','Dosya düzenleniyor','Sadece değişen kısımlar yazılıyor')}
+  if(/<run\b/.test(full)){dn('write');st('cmd','Komut hazırlanıyor','Terminal komutu yazılıyor')}sc()};
  try{
   const r=await fetch('/api/chat',{method:'POST',signal:sig,headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:HIST.slice(-12),mode,files:Object.entries(FILES).map(([name,content])=>({name,content}))})});
   if(!r.ok||!r.body)throw new Error('Sunucu '+r.status);
